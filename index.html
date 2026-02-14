@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RDNT | Advanced Design Engine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700;800&display=swap');
+        
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #02040a;
+            color: #f8fafc;
+            overflow-x: hidden;
+        }
+
+        .studio-glass {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(30px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 2.5rem;
+        }
+
+        .progress-bar-container {
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 99px;
+            overflow: hidden;
+            width: 100%;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #3b82f6, #6366f1);
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
+            transition: width 0.3s ease-out;
+        }
+
+        #loader-overlay {
+            background: rgba(2, 4, 10, 0.92);
+        }
+
+        .upload-slot {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px dashed rgba(255, 255, 255, 0.1);
+            cursor: pointer;
+        }
+        
+        .upload-slot:hover {
+            border-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        #main-image {
+            max-height: 70vh;
+            filter: drop-shadow(0 40px 80px rgba(0, 0, 0, 0.9));
+            border-radius: 1.5rem;
+        }
+
+        .history-thumb {
+            aspect-ratio: 1;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-radius: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .history-thumb:hover {
+            transform: translateY(-4px) scale(1.05);
+            border-color: #3b82f6;
+        }
+
+        .btn-generate {
+            background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+            transition: all 0.3s ease;
+        }
+
+        .btn-generate:hover:not(:disabled) {
+            transform: translateY(-2px);
+            filter: brightness(1.1);
+            box-shadow: 0 15px 30px -10px rgba(124, 58, 237, 0.5);
+        }
+
+        .reference-mini {
+            width: 100%;
+            aspect-ratio: 16/9;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 1rem;
+            overflow: hidden;
+            position: relative;
+        }
+    </style>
+</head>
+<body class="min-h-screen pb-20">
+
+    <div class="max-w-7xl mx-auto px-6 py-10">
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row items-center justify-between mb-12 gap-8">
+            <div class="flex items-center gap-5">
+                <div class="w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center shadow-2xl">
+                    <span class="text-white font-black text-2xl italic tracking-tighter">RDNT</span>
+                </div>
+                <div>
+                    <h1 class="text-3xl font-black tracking-tight uppercase">BRAND <span class="text-blue-500">ENGINE</span></h1>
+                    <p class="text-[10px] font-bold text-slate-500 tracking-[0.5em] uppercase">Identity & Global Synthesis</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-4 bg-slate-900/50 px-6 py-3 rounded-full border border-slate-800">
+                <div id="status-dot" class="w-2 h-2 rounded-full bg-slate-700"></div>
+                <span id="status-text" class="text-[10px] font-black uppercase tracking-widest text-slate-400">Ready for Assets</span>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
+            <!-- CANVAS (LEFT) -->
+            <div class="lg:col-span-7 flex flex-col gap-6">
+                <div id="studio-canvas" class="studio-glass p-8 relative overflow-hidden flex items-center justify-center min-h-[600px] bg-[#080a12] shadow-2xl">
+                    
+                    <!-- Darkened Progress Overlay -->
+                    <div id="loader-overlay" class="absolute inset-0 z-50 flex flex-col items-center justify-center px-16 text-center hidden backdrop-blur-md">
+                        <div class="w-full max-w-sm">
+                            <div class="flex justify-between items-end mb-4">
+                                <div class="text-left">
+                                    <p id="loader-step" class="text-[10px] font-black uppercase tracking-[0.4em] text-blue-400 mb-1">Synthesizing</p>
+                                    <p id="loader-msg" class="text-lg font-bold text-white italic">Applying RDNT Identity...</p>
+                                </div>
+                                <p id="loader-pct" class="text-3xl font-black text-white/10 italic">0%</p>
+                            </div>
+                            <div class="progress-bar-container">
+                                <div id="loader-bar" class="progress-bar-fill"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Main Display -->
+                    <img id="main-image" src="" alt="" class="w-full h-auto object-contain hidden">
+                    
+                    <!-- Initial Upload State -->
+                    <div id="initial-upload-prompt" class="flex flex-col items-center text-center max-w-sm">
+                        <div class="w-20 h-20 bg-blue-500/10 rounded-3xl flex items-center justify-center mb-6">
+                            <i class="fas fa-cloud-arrow-up text-blue-500 text-2xl"></i>
+                        </div>
+                        <h2 class="text-2xl font-black mb-3">Upload Garment</h2>
+                        <p class="text-slate-500 text-xs mb-8 leading-relaxed">Select the hoodie or piece of apparel you want to customize. The RDNT logo will be applied automatically.</p>
+                        <label class="px-10 py-4 bg-white text-black font-black uppercase tracking-widest text-xs rounded-2xl cursor-pointer hover:bg-blue-600 hover:text-white transition-all shadow-xl">
+                            Select Garment
+                            <input type="file" id="garment-upload" accept="image/*" class="hidden">
+                        </label>
+                    </div>
+
+                    <!-- Canvas Actions -->
+                    <div id="canvas-actions" class="absolute bottom-8 right-8 flex gap-3 hidden">
+                        <button onclick="downloadDesign()" class="w-12 h-12 bg-slate-900/80 backdrop-blur-md hover:bg-white/10 rounded-full flex items-center justify-center border border-white/10 transition-all">
+                            <i class="fas fa-download text-sm"></i>
+                        </button>
+                        <button onclick="location.reload()" class="w-12 h-12 bg-slate-900/80 backdrop-blur-md hover:bg-white/10 rounded-full flex items-center justify-center border border-white/10 transition-all">
+                            <i class="fas fa-rotate-left text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CONTROLS (RIGHT) -->
+            <div class="lg:col-span-5 flex flex-col gap-6">
+                <!-- Main Control Panel -->
+                <div class="studio-glass p-10 shadow-2xl relative border-t border-white/5">
+                    <div class="mb-8">
+                        <h2 class="text-2xl font-black mb-2 tracking-tight uppercase">Design Center</h2>
+                        <p class="text-slate-500 text-[11px] leading-relaxed">
+                            Every generation applies a <strong class="text-white italic">Global Aesthetic Transformation</strong>. The engine preserves the <strong class="text-blue-500 italic">RDNT</strong> logo on the chest.
+                        </p>
+                    </div>
+
+                    <!-- Mood/Reference Section (Now Persistent) -->
+                    <div class="mb-8 p-4 bg-white/5 rounded-2xl border border-white/5">
+                        <div class="flex items-center justify-between mb-3">
+                            <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Style Reference (Mood)</p>
+                            <label class="text-[9px] font-bold text-blue-400 cursor-pointer hover:underline uppercase">
+                                Change Mood
+                                <input type="file" id="reference-upload" accept="image/*" class="hidden">
+                            </label>
+                        </div>
+                        <div id="reference-container" class="reference-mini flex items-center justify-center group">
+                            <img id="reference-img" src="" class="w-full h-full object-cover hidden">
+                            <div id="reference-placeholder" class="text-center opacity-40 group-hover:opacity-100 transition-opacity">
+                                <i class="fas fa-image text-xl mb-2 block"></i>
+                                <p class="text-[8px] font-bold uppercase tracking-widest">Upload mood for context</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-6">
+                        <div class="relative">
+                            <textarea id="ai-input" 
+                                placeholder="Example: 'Change the hoodie to an aged black techwear fabric with glowing purple accents'..." 
+                                class="w-full h-36 bg-[#0a0c12] border border-white/5 rounded-3xl p-6 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder:text-slate-800 resize-none font-medium"
+                            ></textarea>
+                        </div>
+
+                        <button id="btn-process" disabled class="btn-generate w-full py-5 rounded-2xl font-black uppercase tracking-[0.3em] text-[10px] shadow-2xl disabled:opacity-20 disabled:grayscale disabled:cursor-not-allowed flex items-center justify-center gap-3 transition-all">
+                            Initiate Synthesis <i class="fas fa-bolt"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- History -->
+                <div class="px-2">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-[9px] font-black uppercase tracking-[0.5em] text-slate-600">Design Archive</h3>
+                        <span id="history-badge" class="px-2 py-0.5 bg-blue-500/10 text-blue-500 text-[10px] font-bold rounded-full uppercase tracking-tighter">0 VERSIONS</span>
+                    </div>
+                    <div id="history-grid" class="grid grid-cols-4 gap-4">
+                        <!-- History items -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast" class="fixed bottom-10 left-1/2 -translate-x-1/2 bg-slate-900 border border-white/5 p-4 rounded-2xl shadow-2xl flex items-center gap-4 opacity-0 translate-y-24 transition-all duration-500 z-[100]">
+        <div class="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center text-blue-400">
+            <i class="fas fa-check"></i>
+        </div>
+        <div class="flex flex-col">
+            <p class="text-[10px] font-black uppercase text-slate-500 tracking-widest">System Sync</p>
+            <p id="toast-msg" class="text-xs font-bold text-slate-200">Asset uploaded successfully.</p>
+        </div>
+    </div>
+
+    <script>
+        const apiKey = ""; 
+        const model = "gemini-2.5-flash-image-preview";
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+        const garmentInput = document.getElementById('garment-upload');
+        const referenceInput = document.getElementById('reference-upload');
+        const mainImage = document.getElementById('main-image');
+        const initialPrompt = document.getElementById('initial-upload-prompt');
+        const referenceImg = document.getElementById('reference-img');
+        const referencePlaceholder = document.getElementById('reference-placeholder');
+        
+        const btnProcess = document.getElementById('btn-process');
+        const aiInput = document.getElementById('ai-input');
+        const loaderOverlay = document.getElementById('loader-overlay');
+        const canvasActions = document.getElementById('canvas-actions');
+        const statusText = document.getElementById('status-text');
+        const statusDot = document.getElementById('status-dot');
+        const historyGrid = document.getElementById('history-grid');
+
+        let garmentBase64 = null;
+        let referenceBase64 = null;
+        let isProcessing = false;
+
+        // 1. IMPROVED UPLOAD HANDLING
+        garmentInput.addEventListener('change', (e) => handleFile(e, 'garment'));
+        referenceInput.addEventListener('change', (e) => handleFile(e, 'reference'));
+
+        function handleFile(e, type) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const imgData = event.target.result;
+                const base64 = imgData.split(',')[1];
+                
+                if (type === 'garment') {
+                    garmentBase64 = base64;
+                    mainImage.src = imgData;
+                    mainImage.classList.remove('hidden');
+                    initialPrompt.classList.add('hidden');
+                    canvasActions.classList.remove('hidden');
+                    btnProcess.disabled = false;
+                    statusText.innerText = "Identity Linked";
+                    statusDot.className = "w-2 h-2 rounded-full bg-green-500";
+                    addHistory(imgData);
+                    showToast("Garment asset synchronized.");
+                } else {
+                    referenceBase64 = base64;
+                    referenceImg.src = imgData;
+                    referenceImg.classList.remove('hidden');
+                    referencePlaceholder.classList.add('hidden');
+                    showToast("Mood reference updated.");
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // 2. AI GENERATION ENGINE
+        async function runSynthesis() {
+            const prompt = aiInput.value.trim();
+            if (!prompt || !garmentBase64 || isProcessing) return;
+
+            isProcessing = true;
+            toggleLoader(true);
+            animateProgressBar();
+
+            const systemPrompt = `
+                GLOBAL APPAREL SYNTHESIS:
+                Brand Identity Check: The apparel MUST feature the text "RDNT" on the center chest area.
+                Logo Style: Distressed, thick collegiate/varsity font (white/grey with dark outlines). If the uploaded garment is blank, you MUST add this RDNT logo.
+                
+                Directive: Transform the garment fabric, color, and aesthetic based on: "${prompt}". 
+                ${referenceBase64 ? "Mood Guidance: Incorporate the vibe, colors, or textures from the provided reference image." : ""}
+                
+                Action: Perform a global re-rendering of the textile. Change the whole hoodie while preserving the RDNT identity.
+                Output: One photorealistic design image.
+            `;
+
+            const parts = [
+                { text: systemPrompt },
+                { inlineData: { mimeType: "image/webp", data: garmentBase64 } }
+            ];
+
+            if (referenceBase64) {
+                parts.push({ inlineData: { mimeType: "image/webp", data: referenceBase64 } });
+            }
+
+            const payload = {
+                contents: [{ parts }],
+                generationConfig: { responseModalities: ["TEXT", "IMAGE"] }
+            };
+
+            try {
+                const response = await fetchWithRetry(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+                const part = data.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+
+                if (part) {
+                    const finalImg = `data:image/png;base64,${part.inlineData.data}`;
+                    mainImage.src = finalImg;
+                    garmentBase64 = part.inlineData.data; 
+                    addHistory(finalImg);
+                    completeLoader();
+                } else {
+                    throw new Error("Design engine error: Synthesis failed.");
+                }
+            } catch (err) {
+                showToast(err.message);
+                toggleLoader(false);
+            } finally {
+                isProcessing = false;
+            }
+        }
+
+        // 3. PROGRESS SYSTEM
+        let progressVal = 0;
+        let progressTimer;
+        const phases = [
+            { p: 0, s: "IDENTITY", m: "Embedding RDNT logo..." },
+            { p: 25, s: "MAPPING", m: "Reading textile coordinates..." },
+            { p: 50, s: "DESIGNING", m: "Integrating style reference..." },
+            { p: 75, s: "RENDERING", m: "Applying lighting physics..." },
+            { p: 90, s: "EXPORTING", m: "Exporting high-fidelity result..." }
+        ];
+
+        function animateProgressBar() {
+            progressVal = 0;
+            updateUI(0);
+            progressTimer = setInterval(() => {
+                if (progressVal < 97) {
+                    progressVal += Math.random() * 0.5;
+                    updateUI(progressVal);
+                    const phase = phases.findLast(ph => progressVal >= ph.p);
+                    if (phase) {
+                        document.getElementById('loader-step').innerText = phase.s;
+                        document.getElementById('loader-msg').innerText = phase.m;
+                    }
+                }
+            }, 100);
+        }
+
+        function updateUI(v) {
+            document.getElementById('loader-bar').style.width = v + '%';
+            document.getElementById('loader-pct').innerText = Math.floor(v) + '%';
+        }
+
+        function completeLoader() {
+            clearInterval(progressTimer);
+            updateUI(100);
+            document.getElementById('loader-step').innerText = "SYNTHESIZED";
+            document.getElementById('loader-msg').innerText = "Brand identity confirmed.";
+            setTimeout(() => toggleLoader(false), 800);
+        }
+
+        // 4. UTILITIES
+        async function fetchWithRetry(url, opts, retries = 5) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const res = await fetch(url, opts);
+                    if (res.ok) return res;
+                    await new Promise(r => setTimeout(r, Math.pow(2, i) * 1000));
+                } catch (e) {
+                    if (i === retries - 1) throw e;
+                }
+            }
+        }
+
+        function toggleLoader(show) {
+            loaderOverlay.classList.toggle('hidden', !show);
+            loaderOverlay.classList.toggle('flex', show);
+        }
+
+        function addHistory(url) {
+            const card = document.createElement('div');
+            card.className = "history-thumb overflow-hidden";
+            card.innerHTML = `<img src="${url}" class="w-full h-full object-cover">`;
+            card.onclick = () => {
+                mainImage.src = url;
+                garmentBase64 = url.split(',')[1];
+            };
+            historyGrid.prepend(card);
+            document.getElementById('history-badge').innerText = `${historyGrid.children.length} VERSIONS`;
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = msg;
+            t.classList.replace('opacity-0', 'opacity-100');
+            t.classList.replace('translate-y-24', 'translate-y-0');
+            setTimeout(() => {
+                t.classList.replace('opacity-100', 'opacity-0');
+                t.classList.replace('translate-y-0', 'translate-y-24');
+            }, 4000);
+        }
+
+        function downloadDesign() {
+            const a = document.createElement('a');
+            a.href = mainImage.src;
+            a.download = `RDNT-ENGINE-${Date.now()}.png`;
+            a.click();
+        }
+
+        btnProcess.onclick = runSynthesis;
+    </script>
+</body>
+</html>
